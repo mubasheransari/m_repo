@@ -1,7 +1,7 @@
 {
   "name": "miora-backend",
   "version": "0.1.0",
-  "description": "MIORA - Muslim matrimonial platform API",
+  "description": "MIORA - Muslim matrimonial platform",
   "private": true,
   "scripts": {
     "build": "prisma generate && nest build",
