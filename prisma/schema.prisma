@@ -1,0 +1,340 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Sect {
+  SUNNI
+  SHIA
+  JUST_MUSLIM
+  OTHER
+}
+
+enum Religiousness {
+  VERY_PRACTISING
+  PRACTISING
+  MODERATE
+  LEARNING
+}
+
+enum MarriageTimeline {
+  ASAP
+  WITHIN_6_MONTHS
+  WITHIN_1_YEAR
+  WITHIN_2_YEARS
+  NOT_SURE
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+  VOICE
+}
+
+model User {
+  id           String           @id @default(uuid())
+  email        String?          @unique
+  phone        String?          @unique
+  name         String?
+  passwordHash String?
+  themeKey     String?          // app colour theme: a preset key (rose, ocean, ...) or a custom #RRGGBB
+  role         Role             @default(USER)
+  status       UserStatus       @default(ACTIVE)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  lastActiveAt DateTime         @default(now())
+  profile      Profile?
+  privacy      PrivacySettings?
+  media        Media[]
+  icebreakers  Icebreaker[]
+  swipesGiven    Swipe[]  @relation("SwipeFrom")
+  swipesReceived Swipe[]  @relation("SwipeTo")
+  matchesA       Match[]  @relation("MatchA")
+  matchesB       Match[]  @relation("MatchB")
+  blocksGiven    Block[]  @relation("BlockBy")
+  blocksReceived Block[]  @relation("BlockOf")
+  convsA         Conversation[] @relation("ConvA")
+  convsB         Conversation[] @relation("ConvB")
+  messagesSent   Message[]
+  verifications  PhotoVerification[]
+  quizzesSent      QuizInvite[]       @relation("QuizSender")
+  quizzesReceived  QuizInvite[]       @relation("QuizRecipient")
+  chatPrefs        ConversationPref[]
+}
+
+model Otp {
+  id         String   @id @default(uuid())
+  identifier String
+  codeHash   String
+  attempts   Int      @default(0)
+  consumed   Boolean  @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+}
+
+model Profile {
+  userId             String            @id
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName          String
+  gender             Gender
+  dateOfBirth        DateTime
+  bio                String?
+  city               String?
+  country            String?
+  latitude           Float?
+  longitude          Float?
+  sect               Sect?
+  religiousness      Religiousness?
+  education          String?
+  profession         String?
+  ethnicity          String?
+  languages          String[]
+  interests          String[]
+  lifestyle          String[]
+  marriageIntention  String?
+  marriageTimeline   MarriageTimeline?
+  wantsChildren      Boolean?
+  gpsLatitude        Float?
+  gpsLongitude       Float?
+  gpsUpdatedAt       DateTime?
+  travelActive       Boolean           @default(false)
+  travelCity         String?
+  travelCountry      String?
+  travelLatitude     Float?
+  travelLongitude    Float?
+  verified           Boolean           @default(false)
+  onboardingComplete Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([gender, country, city])
+  @@index([latitude, longitude])
+}
+
+model PrivacySettings {
+  userId           String  @id
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hideProfile      Boolean @default(false)
+  invisibleMode    Boolean @default(false)
+  blurPhotos       Boolean @default(false)
+  showDistance     Boolean @default(true)
+  allowScreenshots Boolean @default(false)
+  allowNearbyMessages Boolean @default(true)
+  allowDirectMessages Boolean @default(false)
+  showOnGlobe      Boolean @default(false)
+}
+
+model Media {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       MediaType
+  url        String
+  blurredUrl String?
+  isPrivate  Boolean   @default(false)
+  position   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, type])
+}
+
+model Icebreaker {
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question String
+  answer   String
+  position Int
+
+  @@unique([userId, position])
+}
+
+enum SwipeAction {
+  LIKE
+  PASS
+}
+
+model Swipe {
+  id        String      @id @default(uuid())
+  fromId    String
+  toId      String
+  from      User        @relation("SwipeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to        User        @relation("SwipeTo", fields: [toId], references: [id], onDelete: Cascade)
+  action    SwipeAction
+  createdAt DateTime    @default(now())
+
+  @@unique([fromId, toId])
+  @@index([toId, action])
+}
+
+model Match {
+  id        String   @id @default(uuid())
+  userAId   String
+  userBId   String
+  userA     User     @relation("MatchA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User     @relation("MatchB", fields: [userBId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+}
+
+model Block {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  blocker   User     @relation("BlockBy", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("BlockOf", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+enum ConversationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CLOSED
+}
+
+enum ConversationOrigin {
+  MATCH
+  NEARBY
+  DIRECT
+}
+
+model Conversation {
+  id            String             @id @default(uuid())
+  userAId       String
+  userBId       String
+  userA         User               @relation("ConvA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB         User               @relation("ConvB", fields: [userBId], references: [id], onDelete: Cascade)
+  initiatorId   String
+  origin        ConversationOrigin
+  status        ConversationStatus @default(PENDING)
+  respondedAt   DateTime?
+  lastMessageAt DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+  messages      Message[]
+  quizInvites   QuizInvite[]
+  prefs         ConversationPref[]
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+  @@index([initiatorId, createdAt])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  /// TEXT for normal messages; QUIZ_SENT / QUIZ_DONE / QUIZ_DECLINED / QUIZ_CANCELLED for quiz events shown as cards.
+  kind           String       @default("TEXT")
+  quizInviteId   String?
+  quizInvite     QuizInvite?  @relation(fields: [quizInviteId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+
+  @@index([conversationId, createdAt])
+  @@index([quizInviteId])
+}
+
+enum QuizInviteStatus {
+  PENDING
+  COMPLETED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+/// A compatibility quiz one member sends to another inside a chat. The sender answers first; the recipient answers
+/// the same questions; the score is worked out from how closely the two sets of answers agree.
+/// Only the two members can ever read it.
+model QuizInvite {
+  id               String           @id @default(uuid())
+  quizId           String           // key of a quiz in src/quiz/quiz.catalog.ts
+  quizVersion      Int              @default(1)
+  conversationId   String
+  conversation     Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId         String
+  sender           User             @relation("QuizSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId      String
+  recipient        User             @relation("QuizRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  status           QuizInviteStatus @default(PENDING)
+  senderAnswers    Json
+  recipientAnswers Json?
+  score            Int?             // 0-100 once completed
+  breakdown        Json?            // per-topic scores and per-question similarity
+  expiresAt        DateTime
+  createdAt        DateTime         @default(now())
+  completedAt      DateTime?
+  messages         Message[]
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, status])
+  @@index([conversationId, createdAt])
+}
+
+/// A member's own settings for one conversation (only they see the effect): currently the chat colour theme.
+model ConversationPref {
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  themeKey       String?
+  updatedAt      DateTime     @updatedAt
+
+  @@id([userId, conversationId])
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// One attempt at proving the uploaded photos show the member: a live selfie doing a random gesture, compared with their photos.
+model PhotoVerification {
+  id           String             @id @default(uuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       VerificationStatus @default(PENDING)
+  nonce        String             @unique // the challenge this selfie answered; a challenge can be used once
+  gesture      String
+  selfieFile   String // file name in the PRIVATE folder (never served publicly)
+  matchScore   Float? // lowest photo similarity (0-100) when checked automatically
+  reason       String? // why it was rejected, shown to the member
+  engine       String
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime           @default(now())
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}

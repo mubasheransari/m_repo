@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIORA Admin</title>
+<style>
+:root{--primary:#C81E9E;--primary-dark:#8A1470;--primary-light:#E05FBE;--soft:#F9D9F0;--bg:#FBEFF8;--ink:#1E1230;--muted:#7C6B80;--rose:#D92D4A;--ok:#1E9E6A;--warn:#D98A1E;--card:#fff;--line:#EBD7E6}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit}
+.hidden{display:none!important}
+.btn{border:0;border-radius:999px;padding:8px 16px;font-weight:600;background:var(--soft);color:var(--primary-dark)}
+.btn:hover{filter:brightness(.96)}
+.btn.primary{background:linear-gradient(135deg,var(--primary-dark),var(--primary-light));color:#fff}
+.btn.danger{background:#fde4e8;color:var(--rose)}
+.btn.ok{background:#dcf5ea;color:var(--ok)}
+.btn.sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+input[type=text],input[type=email],input[type=password],input[type=search],select,textarea{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;color:var(--ink);width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--primary-light);outline-offset:0}
+
+/* login */
+#login{min-height:100%;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(160deg,#E3B5EE,#F7C9E9 60%,#FBEBD8)}
+.login-card{background:rgba(255,255,255,.85);border-radius:28px;padding:32px;width:100%;max-width:400px;box-shadow:0 20px 50px rgba(200,30,158,.2)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.18em;font-size:20px}
+.logo i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary-dark),var(--primary-light));color:#fff;font-style:normal;letter-spacing:0}
+.login-card h1{font-size:22px;margin:22px 0 4px}
+.login-card p{color:var(--muted);margin:0 0 18px}
+.field{margin-bottom:12px}
+.field label{display:block;font-weight:600;margin-bottom:5px;font-size:13px}
+.err{color:var(--rose);font-size:13px;min-height:18px;margin:6px 0}
+
+/* app */
+#app{display:flex;min-height:100%}
+aside{width:220px;background:#fff;border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+aside .logo{padding:0 8px 16px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:none;text-align:left;padding:10px 12px;border-radius:12px;font-weight:600;color:var(--muted);width:100%}
+.nav.active{background:var(--soft);color:var(--primary-dark)}
+.nav:hover{background:var(--bg)}
+.pill{background:var(--rose);color:#fff;border-radius:999px;padding:1px 8px;font-size:11px}
+.spacer{flex:1}
+.me{font-size:12px;color:var(--muted);padding:0 10px 6px;word-break:break-all}
+main{flex:1;padding:26px;min-width:0}
+main h2{margin:0 0 18px;font-size:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:22px}
+.stat{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 6px 18px rgba(200,30,158,.07)}
+.stat b{display:block;font-size:26px;margin-top:4px}
+.stat span{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.panel{background:var(--card);border-radius:18px;padding:18px;box-shadow:0 6px 18px rgba(200,30,158,.07);margin-bottom:18px}
+.bar{display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--soft);margin:10px 0 6px}
+.bar i{display:block;height:100%}
+.legend{display:flex;gap:16px;color:var(--muted);font-size:12px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.toolbar input{max-width:300px}.toolbar select{max-width:170px}
+.table-wrap{background:var(--card);border-radius:18px;overflow:auto;box-shadow:0 6px 18px rgba(200,30,158,.07)}
+table{border-collapse:collapse;width:100%;min-width:860px}
+th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;background:#fff;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+.user{display:flex;align-items:center;gap:10px}
+.av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--primary-dark),var(--primary-light));color:#fff;display:grid;place-items:center;font-weight:700;overflow:hidden;flex:none}
+.av img{width:100%;height:100%;object-fit:cover}
+.sub{color:var(--muted);font-size:12px}
+.badge{display:inline-block;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;margin-right:4px}
+.b-ACTIVE,.b-ok{background:#dcf5ea;color:var(--ok)}
+.b-SUSPENDED,.b-warn{background:#fdefd8;color:var(--warn)}
+.b-BANNED,.b-bad{background:#fde4e8;color:var(--rose)}
+.b-off{background:#eee;color:#888}
+.b-globe{background:var(--soft);color:var(--primary-dark)}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.pager{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:14px;color:var(--muted)}
+.empty{padding:36px;text-align:center;color:var(--muted)}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{border:0;border-radius:999px;padding:8px 16px;background:#fff;font-weight:600;color:var(--muted)}
+.tab.active{background:var(--primary);color:#fff}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.vcard{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 6px 18px rgba(200,30,158,.07)}
+.vcard .imgs{display:flex;gap:8px;margin:10px 0;overflow-x:auto}
+.vcard .imgs img{height:140px;border-radius:12px;object-fit:cover;background:var(--soft)}
+.vcard .selfie{height:190px}
+.row{display:flex;justify-content:space-between;gap:10px;margin:3px 0}
+.row span:first-child{color:var(--muted)}
+
+/* modal + toast */
+.overlay{position:fixed;inset:0;background:rgba(30,18,48,.5);display:flex;align-items:center;justify-content:center;padding:18px;z-index:50}
+.modal{background:#fff;border-radius:22px;padding:22px;max-width:560px;width:100%;max-height:90vh;overflow:auto}
+.modal h3{margin:0 0 12px}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.photos{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px}
+.photos img{height:150px;border-radius:12px;object-fit:cover}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--primary-dark);color:#fff;border-radius:99px;padding:10px 20px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+#toast.error{background:var(--rose)}
+@media (max-width:760px){aside{position:fixed;bottom:0;left:0;right:0;top:auto;width:auto;height:auto;flex-direction:row;padding:8px;z-index:20;border-top:1px solid var(--line);border-right:0}aside .logo,aside .me,.spacer{display:none}.nav{justify-content:center}main{padding:16px 14px 90px}}
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <div class="login-card">
+    <div class="logo"><i>M</i>MIORA</div>
+    <h1>Admin panel</h1>
+    <p>Sign in with an administrator account.</p>
+    <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="username" placeholder="admin@example.com"></div>
+    <div class="field"><label for="l-pass">Password</label><input id="l-pass" type="password" autocomplete="current-password" placeholder="Password"></div>
+    <div class="err" id="l-err"></div>
+    <button class="btn primary" id="l-go" style="width:100%;padding:12px">Sign in</button>
+  </div>
+</section>
+
+<div id="app" class="hidden">
+  <aside>
+    <div class="logo"><i>M</i>MIORA</div>
+    <button class="nav active" data-view="dashboard">Dashboard</button>
+    <button class="nav" data-view="users">Users</button>
+    <button class="nav" data-view="verifications"><span>Verifications</span><span class="pill hidden" id="pending-pill">0</span></button>
+    <div class="spacer"></div>
+    <div class="me" id="me"></div>
+    <button class="nav" id="logout">Sign out</button>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<div id="toast" class="hidden"></div>
+<div id="modal-root"></div>
+
+<script>
+(function () {
+  'use strict';
+  var API = '/api';
+  var S = { access: null, refresh: null, email: '', view: 'dashboard', users: { page: 1, search: '', status: '' }, vstatus: 'PENDING', blobs: [] };
+
+  // ---------- helpers ----------
+  function $(id) { return document.getElementById(id); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function when(d) { if (!d) return '-'; var x = new Date(d); return isNaN(x) ? '-' : x.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
+  function day(d) { if (!d) return '-'; var x = new Date(d); return isNaN(x) ? '-' : x.toLocaleDateString([], { dateStyle: 'medium' }); }
+  var toastTimer;
+  function toast(msg, error) { var t = $('toast'); t.textContent = msg; t.className = error ? 'error' : ''; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.className = 'hidden'; }, 3200); }
+
+  function save() { sessionStorage.setItem('miora_admin', JSON.stringify({ a: S.access, r: S.refresh, e: S.email })); }
+  function load() { try { var o = JSON.parse(sessionStorage.getItem('miora_admin') || 'null'); if (o && o.a) { S.access = o.a; S.refresh = o.r; S.email = o.e || ''; return true; } } catch (e) {} return false; }
+  function signOut() { S.access = S.refresh = null; sessionStorage.removeItem('miora_admin'); revokeBlobs(); showLogin(); }
+
+  function errText(data, status) {
+    var m = data && data.message;
+    if (Array.isArray(m)) return m.join(', ');
+    return m || ('Request failed (' + status + ')');
+  }
+
+  async function refreshTokens() {
+    if (!S.refresh) return false;
+    try {
+      var r = await fetch(API + '/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: S.refresh }) });
+      if (!r.ok) return false;
+      var d = await r.json(); S.access = d.accessToken; S.refresh = d.refreshToken; save(); return true;
+    } catch (e) { return false; }
+  }
+
+  /** JSON request with the admin token; one automatic token refresh on 401. */
+  async function api(path, opts, retried) {
+    opts = opts || {};
+    var headers = { 'Authorization': 'Bearer ' + S.access };
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    var r;
+    try { r = await fetch(API + path, { method: opts.method || 'GET', headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined }); }
+    catch (e) { throw new Error('Cannot reach the server'); }
+    if (r.status === 401 && !retried && await refreshTokens()) return api(path, opts, true);
+    if (r.status === 401) { signOut(); throw new Error('Session expired. Please sign in again.'); }
+    var data = null; try { data = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error(errText(data, r.status));
+    return data;
+  }
+
+  /** Selfies are private: fetch with the token and show through a temporary blob URL. */
+  async function blobUrl(path) {
+    var r = await fetch(API + path, { headers: { 'Authorization': 'Bearer ' + S.access } });
+    if (!r.ok) throw new Error('image');
+    var u = URL.createObjectURL(await r.blob()); S.blobs.push(u); return u;
+  }
+  function revokeBlobs() { S.blobs.forEach(function (u) { URL.revokeObjectURL(u); }); S.blobs = []; }
+
+  // ---------- modal ----------
+  function closeModal() { $('modal-root').innerHTML = ''; }
+  function modal(html, onMount) {
+    var root = $('modal-root');
+    root.innerHTML = '<div class="overlay"><div class="modal" role="dialog">' + html + '</div></div>';
+    root.querySelector('.overlay').addEventListener('mousedown', function (e) { if (e.target.classList.contains('overlay')) closeModal(); });
+    if (onMount) onMount(root.querySelector('.modal'));
+  }
+  function confirmBox(title, text, okLabel, danger) {
+    return new Promise(function (resolve) {
+      modal('<h3>' + esc(title) + '</h3><p>' + esc(text) + '</p><div class="foot"><button class="btn" data-x="no">Cancel</button><button class="btn ' + (danger ? 'danger' : 'primary') + '" data-x="yes">' + esc(okLabel) + '</button></div>', function (m) {
+        m.addEventListener('click', function (e) { var x = e.target.getAttribute('data-x'); if (x) { closeModal(); resolve(x === 'yes'); } });
+      });
+    });
+  }
+
+  // ---------- login ----------
+  function showLogin() { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('l-pass').value = ''; }
+  async function doLogin() {
+    var email = $('l-email').value.trim(), pass = $('l-pass').value;
+    var err = $('l-err'); err.textContent = '';
+    if (!email || !pass) { err.textContent = 'Enter your email and password'; return; }
+    var b = $('l-go'); b.disabled = true;
+    try {
+      var r = await fetch(API + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, password: pass }) });
+      var d = null; try { d = await r.json(); } catch (e) {}
+      if (!r.ok) throw new Error(errText(d, r.status));
+      if (d.role !== 'ADMIN') throw new Error('This account is not an administrator');
+      S.access = d.accessToken; S.refresh = d.refreshToken; S.email = email; save();
+      start();
+    } catch (e) { err.textContent = e.message === 'Failed to fetch' ? 'Cannot reach the server' : e.message; }
+    finally { b.disabled = false; }
+  }
+
+  function start() {
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('me').textContent = S.email;
+    go(S.view);
+  }
+
+  // ---------- navigation ----------
+  function go(view) {
+    S.view = view; revokeBlobs();
+    document.querySelectorAll('.nav[data-view]').forEach(function (n) { n.classList.toggle('active', n.getAttribute('data-view') === view); });
+    var main = $('main'); main.innerHTML = '<div class="empty">Loading…</div>';
+    var p = view === 'users' ? usersView() : view === 'verifications' ? verificationsView() : dashboardView();
+    p.catch(function (e) { main.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  }
+
+  // ---------- dashboard ----------
+  function stat(label, value) { return '<div class="stat"><span>' + esc(label) + '</span><b>' + esc(value) + '</b></div>'; }
+  async function dashboardView() {
+    var s = await api('/admin/stats');
+    setPending(s.pendingVerifications);
+    var g = (s.male || 0) + (s.female || 0) || 1;
+    var mp = Math.round((s.male || 0) / g * 100), fp = 100 - mp;
+    $('main').innerHTML = '<h2>Dashboard</h2><div class="grid">' +
+      stat('Members', s.total) + stat('Active', s.active) + stat('New (24 h)', s.newToday) + stat('Verified', s.verified) +
+      stat('Suspended / banned', s.suspended) + stat('Profiles completed', s.onboarded) + stat('Sharing location', s.onGlobe) +
+      stat('Pending verifications', s.pendingVerifications) + stat('Matches', s.matches) + stat('Likes', s.likes) +
+      stat('Conversations', s.conversations) + stat('Messages', s.messages) + '</div>' +
+      '<div class="panel"><b>Gender split</b><div class="bar"><i style="width:' + mp + '%;background:var(--primary-dark)"></i><i style="width:' + fp + '%;background:var(--primary-light)"></i></div>' +
+      '<div class="legend"><span>Male ' + esc(s.male) + ' (' + mp + '%)</span><span>Female ' + esc(s.female) + ' (' + fp + '%)</span></div></div>';
+  }
+  function setPending(n) { var p = $('pending-pill'); p.textContent = n; p.classList.toggle('hidden', !n); }
+
+  // ---------- users ----------
+  function avatar(u) {
+    var name = (u.profile && u.profile.firstName) || u.name || u.email || '?';
+    var url = u.media && u.media[0] && u.media[0].url;
+    return '<div class="av">' + (url ? '<img alt="" src="' + esc(url) + '">' : esc(name.charAt(0).toUpperCase())) + '</div>';
+  }
+  async function usersView() {
+    var q = S.users;
+    var qs = '?page=' + q.page + '&limit=20' + (q.search ? '&search=' + encodeURIComponent(q.search) : '') + (q.status ? '&status=' + q.status : '');
+    var d = await api('/admin/users' + qs);
+    var rows = d.items.map(function (u) {
+      var p = u.profile || {};
+      var name = p.firstName || u.name || '(no name)';
+      var place = [p.city, p.country].filter(Boolean).join(', ') || '-';
+      var badges = '<span class="badge b-' + esc(u.status) + '">' + esc(u.status) + '</span>' +
+        (p.verified ? '<span class="badge b-ok">Verified</span>' : '') +
+        (u.privacy && u.privacy.showOnGlobe ? '<span class="badge b-globe">On globe</span>' : '') +
+        (p.onboardingComplete === false || !u.profile ? '<span class="badge b-off">No profile</span>' : '');
+      var st = u.status === 'ACTIVE'
+        ? '<button class="btn sm danger" data-act="status" data-id="' + esc(u.id) + '" data-v="SUSPENDED">Suspend</button><button class="btn sm danger" data-act="status" data-id="' + esc(u.id) + '" data-v="BANNED">Ban</button>'
+        : '<button class="btn sm ok" data-act="status" data-id="' + esc(u.id) + '" data-v="ACTIVE">Activate</button>' + (u.status === 'SUSPENDED' ? '<button class="btn sm danger" data-act="status" data-id="' + esc(u.id) + '" data-v="BANNED">Ban</button>' : '');
+      return '<tr><td><div class="user">' + avatar(u) + '<div><b>' + esc(name) + '</b><div class="sub">' + esc(u.email || u.phone || '') + '</div></div></div></td>' +
+        '<td>' + esc(place) + '</td><td>' + badges + '</td><td>' + day(u.createdAt) + '<div class="sub">Active ' + day(u.lastActiveAt) + '</div></td>' +
+        '<td><div class="actions"><button class="btn sm" data-act="view" data-id="' + esc(u.id) + '">View</button>' + st +
+        (u.profile ? '<button class="btn sm" data-act="verify" data-id="' + esc(u.id) + '" data-v="' + (p.verified ? 'false' : 'true') + '">' + (p.verified ? 'Unverify' : 'Verify') + '</button>' : '') +
+        '</div></td></tr>';
+    }).join('');
+    $('main').innerHTML = '<h2>Users <span class="sub">(' + esc(d.total) + ')</span></h2>' +
+      '<div class="toolbar"><input type="search" id="u-search" placeholder="Search name, email or phone" value="' + esc(q.search) + '">' +
+      '<select id="u-status"><option value="">All statuses</option><option>ACTIVE</option><option>SUSPENDED</option><option>BANNED</option></select></div>' +
+      '<div class="table-wrap"><table><thead><tr><th>Member</th><th>Location</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="5"><div class="empty">No members found</div></td></tr>') + '</tbody></table></div>' +
+      '<div class="pager"><button class="btn sm" id="u-prev"' + (d.page <= 1 ? ' disabled' : '') + '>Previous</button><span>Page ' + d.page + ' of ' + d.pages + '</span><button class="btn sm" id="u-next"' + (d.page >= d.pages ? ' disabled' : '') + '>Next</button></div>';
+    $('u-status').value = q.status;
+    var t; $('u-search').addEventListener('input', function (e) { clearTimeout(t); var v = e.target.value; t = setTimeout(function () { S.users.search = v.trim(); S.users.page = 1; usersView().then(function () { var i = $('u-search'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }, 350); });
+    $('u-status').addEventListener('change', function (e) { S.users.status = e.target.value; S.users.page = 1; usersView(); });
+    $('u-prev').addEventListener('click', function () { S.users.page--; usersView(); });
+    $('u-next').addEventListener('click', function () { S.users.page++; usersView(); });
+  }
+
+  async function userAction(btn) {
+    var act = btn.getAttribute('data-act'), id = btn.getAttribute('data-id'), v = btn.getAttribute('data-v');
+    try {
+      if (act === 'view') return userDetail(id);
+      if (act === 'status') {
+        if (v !== 'ACTIVE' && !(await confirmBox(v === 'BANNED' ? 'Ban this member?' : 'Suspend this member?', 'They will be signed out of the app and unable to use it.', v === 'BANNED' ? 'Ban' : 'Suspend', true))) return;
+        await api('/admin/users/' + id + '/status', { method: 'PATCH', body: { status: v } });
+        toast('Status changed to ' + v.toLowerCase());
+      }
+      if (act === 'verify') { await api('/admin/users/' + id + '/verify', { method: 'PATCH', body: { verified: v === 'true' } }); toast(v === 'true' ? 'Marked as verified' : 'Verification removed'); }
+      usersView();
+    } catch (e) { toast(e.message, true); }
+  }
+
+  async function userDetail(id) {
+    var u = await api('/admin/users/' + id);
+    var p = u.profile || {}, pr = u.privacy || {};
+    var photos = (u.media || []).filter(function (m) { return m.type === 'PHOTO'; });
+    function row(k, v) { return '<div class="row"><span>' + esc(k) + '</span><span>' + esc(v == null || v === '' ? '-' : v) + '</span></div>'; }
+    function yes(b) { return b ? 'Yes' : 'No'; }
+    var vh = (u.verifications || []).map(function (v) { return '<div class="row"><span>' + esc(v.status) + (v.reason ? ' - ' + esc(v.reason) : '') + '</span><span>' + when(v.createdAt) + '</span></div>'; }).join('') || '<div class="sub">No selfie submitted</div>';
+    modal('<h3>' + esc(p.firstName || u.name || u.email) + '</h3>' +
+      (photos.length ? '<div class="photos">' + photos.map(function (m) { return '<img alt="" src="' + esc(m.url) + '">'; }).join('') + '</div>' : '') +
+      row('Email', u.email) + row('Phone', u.phone) + row('Status', u.status) + row('Password set', yes(u.hasPassword)) +
+      row('Gender', p.gender) + row('Date of birth', p.dateOfBirth ? day(p.dateOfBirth) : '') + row('City', [p.city, p.country].filter(Boolean).join(', ')) +
+      row('Profession', p.profession) + row('Education', p.education) + row('Sect', p.sect) + row('Marriage timeline', p.marriageTimeline) +
+      row('Joined', when(u.createdAt)) + row('Last active', when(u.lastActiveAt)) +
+      '<h3 style="margin-top:16px">Privacy</h3>' +
+      row('Sharing location on globe', yes(pr.showOnGlobe)) + row('Profile hidden', yes(pr.hideProfile)) + row('Invisible mode', yes(pr.invisibleMode)) + row('Blur photos', yes(pr.blurPhotos)) + row('Nearby messages', yes(pr.allowNearbyMessages)) +
+      '<h3 style="margin-top:16px">Photo verification</h3>' + vh +
+      '<div class="foot"><button class="btn primary" data-x="close">Close</button></div>',
+      function (m) { m.addEventListener('click', function (e) { if (e.target.getAttribute('data-x') === 'close') closeModal(); }); });
+  }
+
+  // ---------- verifications ----------
+  async function verificationsView() {
+    var d = await api('/admin/verifications?status=' + S.vstatus + '&limit=20');
+    if (S.vstatus === 'PENDING') setPending(d.total);
+    var tabs = ['PENDING', 'APPROVED', 'REJECTED'].map(function (s) { return '<button class="tab' + (S.vstatus === s ? ' active' : '') + '" data-vs="' + s + '">' + s.charAt(0) + s.slice(1).toLowerCase() + '</button>'; }).join('');
+    var cards = d.items.map(function (v) {
+      var u = v.user || {};
+      var actions = v.status === 'PENDING' ? '<div class="actions" style="margin-top:12px"><button class="btn ok" data-vact="approve" data-id="' + esc(v.id) + '">Approve</button><button class="btn danger" data-vact="reject" data-id="' + esc(v.id) + '">Reject</button></div>' : (v.reason ? '<div class="sub" style="margin-top:8px">Reason: ' + esc(v.reason) + '</div>' : '');
+      return '<div class="vcard"><b>' + esc(u.firstName || '(no name)') + '</b> <span class="sub">' + esc(u.email || u.phone || '') + '</span>' +
+        '<div class="row"><span>Asked to</span><span>' + esc(v.gesture || '-') + '</span></div><div class="row"><span>Submitted</span><span>' + when(v.createdAt) + '</span></div>' +
+        (v.matchScore != null ? '<div class="row"><span>Face match</span><span>' + esc(Math.round(v.matchScore)) + '%</span></div>' : '') +
+        '<div class="imgs"><img class="selfie" alt="Selfie" data-selfie="' + esc(v.selfie) + '">' + (v.photos || []).map(function (p) { return '<img alt="Profile photo" src="' + esc(p.url) + '">'; }).join('') + '</div>' + actions + '</div>';
+    }).join('');
+    $('main').innerHTML = '<h2>Photo verifications</h2><div class="tabs">' + tabs + '</div>' + (cards ? '<div class="vgrid">' + cards + '</div>' : '<div class="panel empty">Nothing here</div>');
+    // Selfies need the admin token, so each one is loaded with fetch.
+    document.querySelectorAll('img[data-selfie]').forEach(function (img) {
+      blobUrl(img.getAttribute('data-selfie').replace(/^\/api/, '')).then(function (u) { img.src = u; }).catch(function () { img.alt = 'Selfie unavailable'; });
+    });
+  }
+
+  async function verifyAction(btn) {
+    var id = btn.getAttribute('data-id'), act = btn.getAttribute('data-vact');
+    try {
+      if (act === 'approve') {
+        if (!(await confirmBox('Approve this member?', 'Their photos will be marked as verified and they can start using the app.', 'Approve', false))) return;
+        await api('/admin/verifications/' + id + '/approve', { method: 'POST' }); toast('Approved');
+      } else {
+        var reason = await new Promise(function (resolve) {
+          modal('<h3>Reject selfie</h3><p>The member sees this reason and can try again.</p><textarea id="rj" rows="3" maxlength="300" placeholder="e.g. Your face is not clearly visible"></textarea><div class="foot"><button class="btn" data-x="no">Cancel</button><button class="btn danger" data-x="yes">Reject</button></div>', function (m) {
+            m.addEventListener('click', function (e) { var x = e.target.getAttribute('data-x'); if (x === 'no') { closeModal(); resolve(null); } if (x === 'yes') { var v = $('rj').value.trim(); if (v.length < 3) { toast('Write a short reason (3+ characters)', true); return; } closeModal(); resolve(v); } });
+          });
+        });
+        if (!reason) return;
+        await api('/admin/verifications/' + id + '/reject', { method: 'POST', body: { reason: reason } }); toast('Rejected');
+      }
+      verificationsView();
+    } catch (e) { toast(e.message, true); }
+  }
+
+  // ---------- wiring ----------
+  $('l-go').addEventListener('click', doLogin);
+  ['l-email', 'l-pass'].forEach(function (id) { $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); }); });
+  $('logout').addEventListener('click', signOut);
+  document.querySelectorAll('.nav[data-view]').forEach(function (n) { n.addEventListener('click', function () { go(n.getAttribute('data-view')); }); });
+  $('main').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-act')) userAction(b);
+    else if (b.hasAttribute('data-vact')) verifyAction(b);
+    else if (b.hasAttribute('data-vs')) { S.vstatus = b.getAttribute('data-vs'); verificationsView().catch(function (er) { toast(er.message, true); }); }
+  });
+
+  if (load()) { start(); } else { showLogin(); }
+})();
+</script>
+</body>
+</html>
