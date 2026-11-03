@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { resolve } from 'path';
+import { tmpdir } from 'os';
 
 /** Photo verification is mandatory unless explicitly switched off (REQUIRE_PHOTO_VERIFICATION=false, for local testing). */
 export const photoVerificationRequired = () => process.env.REQUIRE_PHOTO_VERIFICATION !== 'false';
@@ -13,6 +14,7 @@ export type EngineName = 'rekognition' | 'manual' | 'dev';
  *  - dev:         approves everything (development only, refused in production)
  * Not set: rekognition when AWS credentials are present, otherwise manual.
  */
+
 export function engineName(): EngineName {
   const v = (process.env.VERIFICATION_ENGINE || '').toLowerCase();
   if (v === 'rekognition' || v === 'manual' || v === 'dev') return v;
@@ -21,7 +23,8 @@ export function engineName(): EngineName {
 
 /** Verification selfies are sensitive: they live in their own folder that is NEVER served publicly. */
 export function privateDir(): string {
-  const dir = resolve(process.cwd(), process.env.PRIVATE_DIR || 'private');
+  const base = process.env.VERCEL ? tmpdir() : process.cwd();
+  const dir = resolve(base, process.env.PRIVATE_DIR || 'private');
   mkdirSync(dir, { recursive: true });
   return dir;
 }
