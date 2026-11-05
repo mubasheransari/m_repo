@@ -30,6 +30,9 @@ type PutInput = {
   count?: number;
 };
 
+/** "The table / column does not exist": the database has not been updated for this version yet. */
+const isMissingSchema = (e: any) => e?.code === 'P2021' || e?.code === 'P2022' || /relation .* does not exist|does not exist in the current database/i.test(String(e?.message ?? ''));
+
 const preview = (s: string, max = 140) => (s.length > max ? `${s.slice(0, max - 3)}...` : s);
 
 /**
@@ -286,6 +289,16 @@ export class NotificationsService {
   }
 
   async unreadCount(userId: string, blocked?: string[]) {
+    try {
+      return await this.unreadCountQuery(userId, blocked);
+    } catch (e: any) {
+      if (!isMissingSchema(e)) throw e;
+      this.log.error('Notification tables are missing in the database: run `npx prisma db push` (see CHANGES.md). Answering with zero meanwhile.');
+      return { unread: 0, byType: {} as Record<string, number> };
+    }
+  }
+
+  private async unreadCountQuery(userId: string, blocked?: string[]) {
     const b = blocked ?? (await this.blockedWith(userId));
     const rows = await this.prisma.notification.groupBy({
       by: ['type'],
@@ -300,6 +313,16 @@ export class NotificationsService {
 
   /** The list screen: newest activity first, 30 per page. `cursor` = `nextCursor` of the previous page. */
   async inbox(userId: string, opts: { limit?: number; cursor?: string; unreadOnly?: boolean }) {
+    try {
+      return await this.inboxQuery(userId, opts);
+    } catch (e: any) {
+      if (!isMissingSchema(e)) throw e;
+      this.log.error('Notification tables are missing in the database: run `npx prisma db push` (see CHANGES.md). Answering with an empty list meanwhile.');
+      return { items: [], nextCursor: null as string | null, unread: 0, unreadByType: {} as Record<string, number> };
+    }
+  }
+
+  private async inboxQuery(userId: string, opts: { limit?: number; cursor?: string; unreadOnly?: boolean }) {
     const limit = Math.min(Math.max(opts.limit ?? 30, 1), 100);
     const blocked = await this.blockedWith(userId);
     const where: any = { ...this.visible(userId, blocked) };
@@ -328,6 +351,16 @@ export class NotificationsService {
    * Without `since` it only returns the counts (the app has nothing to announce on its first call).
    */
   async updates(userId: string, sinceIso?: string) {
+    try {
+      return await this.updatesQuery(userId, sinceIso);
+    } catch (e: any) {
+      if (!isMissingSchema(e)) throw e;
+      this.log.error('Notification tables are missing in the database: run `npx prisma db push` (see CHANGES.md). Answering with nothing new meanwhile.');
+      return { serverTime: new Date(), items: [] as Awaited<ReturnType<NotificationsService['items']>>, unread: 0, unreadByType: {} as Record<string, number> };
+    }
+  }
+
+  private async updatesQuery(userId: string, sinceIso?: string) {
     const serverTime = new Date(); // taken BEFORE querying: an event may repeat on the next call, never be missed
     const blocked = await this.blockedWith(userId);
     const counts = await this.unreadCount(userId, blocked);
