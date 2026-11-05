@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { MatchingService } from '../matching/matching.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toPublicView } from '../profile/public-view';
 import { photoVerificationRequired } from '../verification/verification.config';
@@ -23,7 +24,7 @@ export type Eligibility = {
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService, private matching: MatchingService) {}
+  constructor(private prisma: PrismaService, private matching: MatchingService, private notifications: NotificationsService) {}
 
   // ------------------------------------------------------------ my location
   async setLocation(userId: string, latitude: number, longitude: number) {
@@ -127,6 +128,13 @@ export class ChatService {
 
     const message = await this.prisma.message.create({ data: { conversationId: conv.id, senderId: userId, body: text } });
     await this.prisma.conversation.update({ where: { id: conv.id }, data: { lastMessageAt: message.createdAt } });
+
+    // Tell the other member. A message inside a pending request is shown as a request (or a direct message), not a chat message.
+    await this.notifications.messageReceived({
+      toId: toUserId, fromId: userId, conversationId: conv.id, body: text,
+      kind: conv.status === 'PENDING' ? (conv.origin === 'DIRECT' ? 'DIRECT' : 'REQUEST') : 'MESSAGE',
+    });
+    await this.notifications.clearConversation(userId, conv.id); // writing in a chat means its notifications were seen
     return { conversationId: conv.id, status: conv.status, message: { id: message.id, body: message.body, createdAt: message.createdAt, fromMe: true } };
   }
 
@@ -142,12 +150,18 @@ export class ChatService {
     }
     if (action === 'ACCEPT') {
       if (conv.status === 'CLOSED') throw new ForbiddenException('This conversation is closed');
-      await this.prisma.conversation.update({ where: { id: conv.id }, data: { status: 'ACCEPTED', respondedAt: new Date() } });
-      return { status: 'ACCEPTED' };
+      // Accepting twice (double tap, or a stale screen) is harmless: nothing changes and nobody is notified again.
+      if (conv.status !== 'ACCEPTED') {
+        await this.prisma.conversation.update({ where: { id: conv.id }, data: { status: 'ACCEPTED', respondedAt: new Date() } });
+        await this.notifications.requestAccepted(conv.initiatorId, userId, conv.id);
+      }
+      await this.notifications.clearConversation(userId, conv.id);
+      return { conversationId: conv.id, status: 'ACCEPTED', needsMyResponse: false };
     }
     if (conv.status !== 'PENDING') throw new BadRequestException('Only a pending request can be declined');
     await this.prisma.conversation.update({ where: { id: conv.id }, data: { status: 'DECLINED', respondedAt: new Date() } });
-    return { status: 'DECLINED' };
+    await this.notifications.clearConversation(userId, conv.id);
+    return { conversationId: conv.id, status: 'DECLINED', needsMyResponse: false };
   }
 
   private async mine(userId: string, id: string) {
@@ -197,6 +211,7 @@ export class ChatService {
           status: c.status,
           origin: c.origin,
           isInitiator: c.initiatorId === userId,
+          needsMyResponse: c.status === 'PENDING' && c.initiatorId !== userId, // true => show Accept / Decline
           other: toPublicView(other, null),
           lastMessage: last ? { body: last.body, createdAt: last.createdAt, fromMe: last.senderId === userId } : null,
           unread: unread.get(c.id) ?? 0,
@@ -221,11 +236,12 @@ export class ChatService {
       rows = (await this.prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: 'desc' }, take: 100, include: { quizInvite: true } })).reverse();
     }
     await this.prisma.message.updateMany({ where: { conversationId, senderId: { not: userId }, readAt: null }, data: { readAt: new Date() } });
+    await this.notifications.clearConversation(userId, conversationId); // opening the chat reads its notifications
     const pref = await this.prisma.conversationPref.findUnique({ where: { userId_conversationId: { userId, conversationId } } });
 
     return {
       // myThemeKey: this member's own colour theme for this chat (null = use the app theme). The other person never sees it.
-      conversation: { id: conv.id, status: conv.status, origin: conv.origin, isInitiator: conv.initiatorId === userId, other: toPublicView(other, null), myThemeKey: pref?.themeKey ?? null },
+      conversation: { id: conv.id, status: conv.status, origin: conv.origin, isInitiator: conv.initiatorId === userId, needsMyResponse: conv.status === 'PENDING' && conv.initiatorId !== userId, other: toPublicView(other, null), myThemeKey: pref?.themeKey ?? null },
       messages: rows.map((m) => ({
         id: m.id,
         body: m.body,

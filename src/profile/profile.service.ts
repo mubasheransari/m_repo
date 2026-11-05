@@ -9,6 +9,7 @@ import { MediaService } from '../media/media.service';
 import { findCity } from '../geo/cities';
 import { SetIcebreakersDto, UpdatePrivacyDto, UpsertProfileDto } from './dto/profile.dto';
 import { isValidThemeKey, normalizeThemeKey } from '../common/theme';
+import { ProfileVisitsService } from './profile-visits.service';
 
 const REQUIRED = ['firstName', 'gender', 'dateOfBirth', 'country', 'marriageTimeline'] as const;
 
@@ -23,7 +24,7 @@ export const ICEBREAKER_SUGGESTIONS = [
 
 @Injectable()
 export class ProfileService {
-  constructor(private prisma: PrismaService, private media: MediaService, private verification: VerificationService) {}
+  constructor(private prisma: PrismaService, private media: MediaService, private verification: VerificationService, private visits: ProfileVisitsService) {}
 
   private completeness(p: any, mediaCount: number, icebreakers: number) {
     const checks = [
@@ -58,6 +59,7 @@ export class ProfileService {
       icebreakers: user.icebreakers,
       completeness: this.completeness(user.profile, photos.length, user.icebreakers.length),
       verification: await this.verification.summary(userId), // status the app uses to show the verification screen
+      profileViews: await this.visits.summary(userId), // { total, last7Days }: how often others opened this profile
     };
   }
 
@@ -140,6 +142,8 @@ export class ProfileService {
     if (blocked) throw new NotFoundException('Profile not found');
 
     const viewer = await this.prisma.profile.findUnique({ where: { userId: viewerId } });
+    // Opening someone's profile counts as a visit (once per 30 minutes) and tells them, unless the viewer is in Invisible mode.
+    await this.visits.record(viewerId, targetId);
     return toPublicView(target, effectiveOrigin(viewer), bestDistance(viewer, target.profile));
   }
 }

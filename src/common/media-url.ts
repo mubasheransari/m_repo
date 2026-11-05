@@ -9,7 +9,7 @@
  */
 
 const MEDIA_RE = /^(?:https?:\/\/[^/]+)?(\/uploads\/[^?#]+)/i;
-const MEDIA_KEYS = new Set(['url', 'blurredUrl']);
+const MEDIA_KEYS = new Set(['url', 'blurredUrl', 'photo']); // 'photo' = the small avatar in notification items
 
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
 

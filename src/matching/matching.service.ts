@@ -8,6 +8,7 @@ import { effectiveOrigin, toPublicView } from '../profile/public-view';
 import { boundingBox, dobBounds, scoreCompat } from './compat';
 import { DiscoverQueryDto, TravelDto } from './dto/matching.dto';
 import { freshGps, GPS_FRESH_MS, NEARBY_MESSAGE_KM, sortedPair } from '../chat/chat.rules';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const WITH_CARD = {
   profile: true,
@@ -18,7 +19,7 @@ const WITH_CARD = {
 
 @Injectable()
 export class MatchingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notifications: NotificationsService) {}
 
   private async myProfile(userId: string) {
     const me = await this.prisma.profile.findUnique({ where: { userId } });
@@ -138,6 +139,7 @@ export class MatchingService {
     if ((await this.blockedIds(userId)).includes(targetId)) throw new NotFoundException('Profile not found');
     if (target.profile.gender === me.gender) throw new BadRequestException('This profile is not available');
 
+    const previous = await this.prisma.swipe.findUnique({ where: { fromId_toId: { fromId: userId, toId: targetId } } });
     await this.prisma.swipe.upsert({
       where: { fromId_toId: { fromId: userId, toId: targetId } },
       create: { fromId: userId, toId: targetId, action },
@@ -146,14 +148,20 @@ export class MatchingService {
     if (action === 'PASS') return { matched: false };
 
     const reverse = await this.prisma.swipe.findUnique({ where: { fromId_toId: { fromId: targetId, toId: userId } } });
-    if (reverse?.action !== 'LIKE') return { matched: false };
+    if (reverse?.action !== 'LIKE') {
+      // A plain like: tell them (not again if this member had already liked them before).
+      if (previous?.action !== 'LIKE') await this.notifications.likeReceived(targetId, userId);
+      return { matched: false };
+    }
 
     const [a, b] = [userId, targetId].sort();
+    const existingMatch = await this.prisma.match.findUnique({ where: { userAId_userBId: { userAId: a, userBId: b } } });
     const match = await this.prisma.match.upsert({
       where: { userAId_userBId: { userAId: a, userBId: b } },
       create: { userAId: a, userBId: b },
       update: {},
     });
+    if (!existingMatch) await this.notifications.matched(userId, targetId); // a new match: both of them are told
     await this.prisma.conversation.updateMany({
       where: { userAId: a, userBId: b, status: { in: ['PENDING', 'DECLINED'] } },
       data: { status: 'ACCEPTED', respondedAt: new Date() },
@@ -218,6 +226,7 @@ export class MatchingService {
       this.prisma.match.deleteMany({ where: { userAId: a, userBId: b } }),
       this.prisma.conversation.updateMany({ where: { userAId: a, userBId: b }, data: { status: 'CLOSED' } }),
     ]);
+    await this.notifications.forgetPair(userId, targetId); // their likes / visits / messages vanish from both notification lists
     return { blocked: true };
   }
 

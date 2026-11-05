@@ -53,34 +53,38 @@ enum MediaType {
 }
 
 model User {
-  id           String           @id @default(uuid())
-  email        String?          @unique
-  phone        String?          @unique
-  name         String?
-  passwordHash String?
-  themeKey     String?          // app colour theme: a preset key (rose, ocean, ...) or a custom #RRGGBB
-  role         Role             @default(USER)
-  status       UserStatus       @default(ACTIVE)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  lastActiveAt DateTime         @default(now())
-  profile      Profile?
-  privacy      PrivacySettings?
-  media        Media[]
-  icebreakers  Icebreaker[]
-  swipesGiven    Swipe[]  @relation("SwipeFrom")
-  swipesReceived Swipe[]  @relation("SwipeTo")
-  matchesA       Match[]  @relation("MatchA")
-  matchesB       Match[]  @relation("MatchB")
-  blocksGiven    Block[]  @relation("BlockBy")
-  blocksReceived Block[]  @relation("BlockOf")
-  convsA         Conversation[] @relation("ConvA")
-  convsB         Conversation[] @relation("ConvB")
-  messagesSent   Message[]
-  verifications  PhotoVerification[]
-  quizzesSent      QuizInvite[]       @relation("QuizSender")
-  quizzesReceived  QuizInvite[]       @relation("QuizRecipient")
-  chatPrefs        ConversationPref[]
+  id                  String              @id @default(uuid())
+  email               String?             @unique
+  phone               String?             @unique
+  name                String?
+  passwordHash        String?
+  themeKey            String? // app colour theme: a preset key (rose, ocean, ...) or a custom #RRGGBB
+  role                Role                @default(USER)
+  status              UserStatus          @default(ACTIVE)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  lastActiveAt        DateTime            @default(now())
+  profile             Profile?
+  privacy             PrivacySettings?
+  media               Media[]
+  icebreakers         Icebreaker[]
+  swipesGiven         Swipe[]             @relation("SwipeFrom")
+  swipesReceived      Swipe[]             @relation("SwipeTo")
+  matchesA            Match[]             @relation("MatchA")
+  matchesB            Match[]             @relation("MatchB")
+  blocksGiven         Block[]             @relation("BlockBy")
+  blocksReceived      Block[]             @relation("BlockOf")
+  convsA              Conversation[]      @relation("ConvA")
+  convsB              Conversation[]      @relation("ConvB")
+  messagesSent        Message[]
+  verifications       PhotoVerification[]
+  quizzesSent         QuizInvite[]        @relation("QuizSender")
+  quizzesReceived     QuizInvite[]        @relation("QuizRecipient")
+  chatPrefs           ConversationPref[]
+  notifications       Notification[]      @relation("NotificationOwner")
+  notificationsCaused Notification[]      @relation("NotificationActor")
+  visitsMade          ProfileVisit[]      @relation("VisitViewer")
+  visitsReceived      ProfileVisit[]      @relation("VisitProfile")
 }
 
 model Otp {
@@ -135,16 +139,16 @@ model Profile {
 }
 
 model PrivacySettings {
-  userId           String  @id
-  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  hideProfile      Boolean @default(false)
-  invisibleMode    Boolean @default(false)
-  blurPhotos       Boolean @default(false)
-  showDistance     Boolean @default(true)
-  allowScreenshots Boolean @default(false)
+  userId              String  @id
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hideProfile         Boolean @default(false)
+  invisibleMode       Boolean @default(false)
+  blurPhotos          Boolean @default(false)
+  showDistance        Boolean @default(true)
+  allowScreenshots    Boolean @default(false)
   allowNearbyMessages Boolean @default(true)
   allowDirectMessages Boolean @default(false)
-  showOnGlobe      Boolean @default(false)
+  showOnGlobe         Boolean @default(false)
 }
 
 model Media {
@@ -279,7 +283,7 @@ enum QuizInviteStatus {
 /// Only the two members can ever read it.
 model QuizInvite {
   id               String           @id @default(uuid())
-  quizId           String           // key of a quiz in src/quiz/quiz.catalog.ts
+  quizId           String // key of a quiz in src/quiz/quiz.catalog.ts
   quizVersion      Int              @default(1)
   conversationId   String
   conversation     Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -290,8 +294,8 @@ model QuizInvite {
   status           QuizInviteStatus @default(PENDING)
   senderAnswers    Json
   recipientAnswers Json?
-  score            Int?             // 0-100 once completed
-  breakdown        Json?            // per-topic scores and per-question similarity
+  score            Int? // 0-100 once completed
+  breakdown        Json? // per-topic scores and per-question similarity
   expiresAt        DateTime
   createdAt        DateTime         @default(now())
   completedAt      DateTime?
@@ -338,4 +342,50 @@ model PhotoVerification {
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
+}
+
+enum NotificationType {
+  PROFILE_VISIT
+  LIKE
+  MATCH
+  MESSAGE
+  MESSAGE_REQUEST
+  DIRECT_MESSAGE
+  REQUEST_ACCEPTED
+  QUIZ
+}
+
+/// One entry in a member's notification list. Repeats are collapsed while unread (several messages in one chat, several visits
+/// by one person become ONE row whose `count` grows and whose `lastEventAt` moves forward), so the list never floods.
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation("NotificationOwner", fields: [userId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  body        String
+  data        Json? // { conversationId?, profileId?, count, ... } what the app needs to open the right screen
+  groupKey    String? // e.g. "MSG:<conversationId>", "VISIT:<viewerId>": the unread row with the same key is updated, not duplicated
+  readAt      DateTime? // null = unread. Set only when the member opens it (or opens the chat it is about)
+  createdAt   DateTime         @default(now())
+  lastEventAt DateTime         @default(now()) // moves forward when a grouped row gets a newer event; the app polls on this
+
+  @@index([userId, readAt, lastEventAt])
+  @@index([userId, lastEventAt])
+  @@index([userId, groupKey, readAt])
+}
+
+/// One recorded visit to a member's profile (at most one per visitor per 30 minutes, so refreshing the page does not inflate the count).
+model ProfileVisit {
+  id        String   @id @default(uuid())
+  viewerId  String
+  profileId String
+  viewer    User     @relation("VisitViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  profile   User     @relation("VisitProfile", fields: [profileId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([profileId, createdAt])
+  @@index([viewerId, profileId, createdAt])
 }

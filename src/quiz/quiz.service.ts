@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injec
 import { randomUUID } from 'crypto';
 import { ChatService } from '../chat/chat.service';
 import { REASON_TEXT, sortedPair } from '../chat/chat.rules';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toPublicView } from '../profile/public-view';
 import { getQuiz, QUIZZES, quizCard, quizForAnswering } from './quiz.catalog';
@@ -17,7 +18,7 @@ const CARD = { profile: true, privacy: true, media: { orderBy: { position: 'asc'
 
 @Injectable()
 export class QuizService {
-  constructor(private prisma: PrismaService, private chat: ChatService) {}
+  constructor(private prisma: PrismaService, private chat: ChatService, private notifications: NotificationsService) {}
 
   // ---------------------------------------------------------------- catalogue
   catalog() {
@@ -114,6 +115,7 @@ export class QuizService {
       this.prisma.message.create({ data: { conversationId, senderId: userId, body: `📝 Compatibility quiz: ${quiz.title}`, kind: 'QUIZ_SENT', quizInviteId: id } }),
       this.prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: now } }),
     ]);
+    await this.notifications.quizSent(toUserId, userId, conversationId, quiz.title);
     return { conversationId, invite: quizSummary(invite, userId) };
   }
 
@@ -188,6 +190,7 @@ export class QuizService {
       this.prisma.message.create({ data: { conversationId: inv.conversationId, senderId: userId, body: `📝 Quiz completed: ${quiz.title} - ${cmp.score}% compatible`, kind: 'QUIZ_DONE', quizInviteId: id } }),
       this.prisma.conversation.update({ where: { id: inv.conversationId }, data: { lastMessageAt: now } }),
     ]);
+    await this.notifications.quizDone(inv.senderId, userId, inv.conversationId, quiz.title, cmp.score);
     return this.get(userId, id);
   }
 

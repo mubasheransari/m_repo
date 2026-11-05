@@ -1,7 +1,7 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsLatitude, IsLongitude,
-  IsOptional, IsString, Matches, MaxLength, ValidateNested, ArrayMinSize,
+  IsOptional, IsString, Matches, MaxLength, ValidateNested, ArrayMinSize, IsInt, Min, Max,
 } from 'class-validator';
 import { THEME_KEY_RE } from '../../common/theme';
 
@@ -56,4 +56,9 @@ export class SetIcebreakersDto {
 export class SetThemeDto {
   /** A preset key (rose, ocean, ...) or a custom #RRGGBB. null goes back to the default. */
   @IsOptional() @IsString() @Matches(THEME_KEY_RE, { message: 'Unknown theme' }) themeKey?: string | null;
+}
+
+export class VisitorsQueryDto {
+  /** How many visitors to return (default 50, max 100). */
+  @IsOptional() @Transform(({ value }) => (value === undefined ? undefined : Number(value))) @IsInt() @Min(1) @Max(100) limit?: number;
 }
