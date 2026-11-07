@@ -58,7 +58,7 @@ model User {
   phone               String?             @unique
   name                String?
   passwordHash        String?
-  themeKey            String? // app colour theme: a preset key (honey, rose, ocean, ...) or a custom #RRGGBB
+  themeKey            String? // app colour theme: a preset key (rose, ocean, ...) or a custom #RRGGBB
   role                Role                @default(USER)
   status              UserStatus          @default(ACTIVE)
   createdAt           DateTime            @default(now())
@@ -85,6 +85,8 @@ model User {
   notificationsCaused Notification[]      @relation("NotificationActor")
   visitsMade          ProfileVisit[]      @relation("VisitViewer")
   visitsReceived      ProfileVisit[]      @relation("VisitProfile")
+  callsMade           Call[]              @relation("CallCaller")
+  callsReceived       Call[]              @relation("CallCallee")
 }
 
 model Otp {
@@ -246,6 +248,7 @@ model Conversation {
   messages      Message[]
   quizInvites   QuizInvite[]
   prefs         ConversationPref[]
+  calls         Call[]
 
   @@unique([userAId, userBId])
   @@index([userBId])
@@ -388,4 +391,52 @@ model ProfileVisit {
 
   @@index([profileId, createdAt])
   @@index([viewerId, profileId, createdAt])
+}
+
+enum CallType {
+  VOICE
+  VIDEO
+}
+
+enum CallStatus {
+  RINGING
+  ACTIVE
+  ENDED
+  DECLINED
+  MISSED
+  CANCELLED
+}
+
+/// One voice or video call between two members (Agora RTC). The server is the only authority on a call's state and length:
+/// it hands out the Agora tokens, bills time from its own clock, and enforces the daily VIDEO limit (see src/calls/call.rules.ts).
+/// RINGING -> ACTIVE (answered) -> ENDED, or RINGING -> DECLINED / MISSED (nobody answered in time) / CANCELLED (caller hung up first).
+model Call {
+  id              String       @id @default(uuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  callerId        String
+  caller          User         @relation("CallCaller", fields: [callerId], references: [id], onDelete: Cascade)
+  calleeId        String
+  callee          User         @relation("CallCallee", fields: [calleeId], references: [id], onDelete: Cascade)
+  type            CallType
+  status          CallStatus   @default(RINGING)
+  channelName     String       @unique // the Agora channel; one fresh channel per call
+  /// HANGUP | DECLINED | CANCELLED | TIMEOUT | TIME_LIMIT | DROPPED | BLOCKED | VIDEO_LIMIT
+  endReason       String?
+  endedById       String?
+  maxSeconds      Int? // hard cap for this call, set when it is answered (video: what is left of the daily limit for BOTH members). null = no cap
+  ringExpiresAt   DateTime
+  answeredAt      DateTime?
+  endedAt         DateTime?
+  durationSeconds Int          @default(0) // billed seconds, rounded up; only set when the call ends
+  callerSeenAt    DateTime? // last heartbeat of each side while ACTIVE; a side silent for too long means the call dropped
+  calleeSeenAt    DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@index([callerId, createdAt])
+  @@index([callerId, status])
+  @@index([calleeId, status])
+  @@index([callerId, type, answeredAt])
+  @@index([calleeId, type, answeredAt])
+  @@index([conversationId, createdAt])
 }

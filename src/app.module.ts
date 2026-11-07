@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { MediaUrlInterceptor } from './common/media-url.interceptor';
+import { CallsModule } from './calls/calls.module';
 import { ChatModule } from './chat/chat.module';
 import { GeoModule } from './geo/geo.module';
 import { GlobeModule } from './globe/globe.module';
@@ -31,6 +32,7 @@ import { QuizModule } from './quiz/quiz.module';
     VerificationModule,
     MatchingModule,
     ChatModule,
+    CallsModule,
     GlobeModule,
     QuizModule,
   ],

@@ -138,6 +138,40 @@ export class ChatService {
     return { conversationId: conv.id, status: conv.status, message: { id: message.id, body: message.body, createdAt: message.createdAt, fromMe: true } };
   }
 
+  // ------------------------------------------------------- features beyond text
+  /**
+   * The ACCEPTED conversation two members share, for things that go beyond a text message (calls).
+   * They must have matched or have an accepted chat: never strangers, never a request still waiting for an answer.
+   * A fresh match that has not written yet gets its conversation created here. `what` words the error ("call").
+   */
+  async acceptedConversationFor(userId: string, otherId: string, what = 'do this'): Promise<string> {
+    const el = await this.eligibility(userId, otherId);
+    if (!el.allowed) throw new ForbiddenException(REASON_TEXT[el.reason] ?? `You cannot ${what} this member`);
+
+    const [a, b] = sortedPair(userId, otherId);
+    const conv = await this.prisma.conversation.findUnique({ where: { userAId_userBId: { userAId: a, userBId: b } } });
+    if (conv && conv.status === 'ACCEPTED') return conv.id;
+    if (conv && conv.status !== 'CLOSED') throw new ForbiddenException(`You can ${what} once your chat request has been accepted`);
+
+    const match = await this.prisma.match.findUnique({ where: { userAId_userBId: { userAId: a, userBId: b } } });
+    if (!match) throw new ForbiddenException(`You can ${what} people you have matched with or are chatting with`);
+
+    if (conv) {
+      // Previously blocked and since unblocked: same clean slate as sending a first message.
+      await this.prisma.message.deleteMany({ where: { conversationId: conv.id } });
+      await this.prisma.conversation.update({ where: { id: conv.id }, data: { initiatorId: userId, origin: 'MATCH', status: 'ACCEPTED', respondedAt: null } });
+      return conv.id;
+    }
+    try {
+      const created = await this.prisma.conversation.create({ data: { userAId: a, userBId: b, initiatorId: userId, origin: 'MATCH', status: 'ACCEPTED' } });
+      return created.id;
+    } catch {
+      const again = await this.prisma.conversation.findUnique({ where: { userAId_userBId: { userAId: a, userBId: b } } }); // lost a race, reuse
+      if (!again) throw new NotFoundException('Conversation not found');
+      return again.id;
+    }
+  }
+
   // -------------------------------------------------------------- responding
   async respond(userId: string, conversationId: string, action: 'ACCEPT' | 'DECLINE' | 'BLOCK') {
     const conv = await this.mine(userId, conversationId);

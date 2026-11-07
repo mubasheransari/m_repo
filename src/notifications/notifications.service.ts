@@ -173,6 +173,23 @@ export class NotificationsService {
     });
   }
 
+  /**
+   * A call was not answered. It is announced like a message in that chat: same grouping (so it merges with unread messages from
+   * the same person) and opening the chat marks it read. Uses the MESSAGE type, so no database change is needed.
+   */
+  missedCall(toId: string, fromId: string, conversationId: string, type: 'VOICE' | 'VIDEO') {
+    return this.safe('missed-call', async () => {
+      if (toId === fromId) return;
+      const name = await this.nameOf(fromId);
+      const what = type === 'VIDEO' ? 'video call' : 'voice call';
+      await this.put({
+        userId: toId, actorId: fromId, type: 'MESSAGE', groupKey: `MSG:${conversationId}`,
+        data: { conversationId, profileId: fromId },
+        text: (c) => ({ title: c > 1 ? `${c} new messages from ${name}` : `Missed ${what} from ${name}`, body: `You missed a ${what}. Tap to message ${name} back.` }),
+      });
+    });
+  }
+
   /** The member who started a conversation is told it was accepted. */
   requestAccepted(initiatorId: string, responderId: string, conversationId: string) {
     return this.safe('accepted', async () => {
