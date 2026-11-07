@@ -58,7 +58,7 @@ model User {
   phone               String?             @unique
   name                String?
   passwordHash        String?
-  themeKey            String? // app colour theme: a preset key (rose, ocean, ...) or a custom #RRGGBB
+  themeKey            String? // app colour theme: a preset key (honey, rose, ocean, ...) or a custom #RRGGBB
   role                Role                @default(USER)
   status              UserStatus          @default(ACTIVE)
   createdAt           DateTime            @default(now())
